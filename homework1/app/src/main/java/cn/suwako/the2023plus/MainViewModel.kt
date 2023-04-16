@@ -1,13 +1,14 @@
 package cn.suwako.the2023plus
 
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-const val ButtonCount = 16;
 val ButtonTexts = listOf(
     "以和为贵",
     "万紫千红",
@@ -27,7 +28,7 @@ data class ButtonData (
     var color: Int = 0,
 )
 
-// 选出四个成语
+// 选出 num 个成语
 fun randomNums(num: Int): List<Int> {
     if (num > ButtonTexts.count()) {
         return listOf();
@@ -36,7 +37,7 @@ fun randomNums(num: Int): List<Int> {
     return range.shuffled().take(num);
 }
 
-// 0 ~ num * 4，在四个成语里选每个字的出现顺序
+// 0 ~ num * 4，在 num 个成语里选每个字的出现顺序
 fun randomText(num: Int): List<Int> {
     val range = 0 until num * 4;
     return range.shuffled();
@@ -44,13 +45,17 @@ fun randomText(num: Int): List<Int> {
 
 class MainViewModel: ViewModel() {
 
+    // 使用的成语个数
+    val idiomCount = 4;
+    var gameOver by mutableStateOf(false);
+    var clickCount by mutableStateOf(0);
     private var finishCount = 0;
     private val _buttonData = mutableListOf<MutableState<ButtonData>>();
     val buttonData: MutableList<MutableState<ButtonData>>
         get() = _buttonData;
 
     init {
-        repeat(ButtonCount) {
+        repeat(idiomCount * 4) {
             _buttonData.add(mutableStateOf(ButtonData("", 0, clickable = true)))
         }
         reset();
@@ -58,12 +63,14 @@ class MainViewModel: ViewModel() {
 
     fun reset() {
         finishCount = 0;
-        val randomNums = randomNums(4);
-        val randomText = randomText(4);
-        for (i in 0 until  ButtonCount) {
+        clickCount = 0;
+        gameOver = false;
+        val randomNums = randomNums(idiomCount);
+        val randomText = randomText(idiomCount);
+        for (i in 0 until  idiomCount * 4) {
             _buttonData[i].value = ButtonData(
-                text = ButtonTexts[randomNums[randomText[i] % 4]][randomText[i] / 4].toString(),
-                textIdx = randomText[i] % 4,
+                text = ButtonTexts[randomNums[randomText[i] / 4]][randomText[i] % 4].toString(),
+                textIdx = randomText[i] / 4,
                 clickable = true,
                 clicked = false,
                 color = 0,
@@ -85,6 +92,7 @@ class MainViewModel: ViewModel() {
             success = false;
             nowNum = -2;
         }
+        ++clickCount;
         _buttonData[idx].value = _buttonData[idx].value.copy(clicked = true);
         clickList.add(idx);
         _buttonData[idx].value.color = _buttonData[idx].value.color xor 1;
@@ -96,21 +104,19 @@ class MainViewModel: ViewModel() {
         }
     }
 
+    // 延迟 800ms，如果成功则显示笑脸，否则恢复原来的颜色以及点击状态
     private suspend fun dealResult() {
         delay(800)
         if (success) {
             finishCount++;
             for (i in clickList) {
-//                    _buttonData[i].value.text = "🤗";
                 _buttonData[i].value = _buttonData[i].value.copy(text = "🤗", clickable = false);
             }
-            if (finishCount == ButtonCount / 4) {
-                // TODO: 通关
-                reset();
+            if (finishCount == idiomCount) {
+                gameOver = true;
             }
         } else {
             for (i in clickList) {
-//                    _buttonData[i].value.clickable = true;
                 _buttonData[i].value = _buttonData[i].value.copy(clicked = false);
                 _buttonData[i].value.color = _buttonData[i].value.color xor 1;
             }

@@ -1,36 +1,40 @@
 package cn.suwako.speedrun.ui.screens
 
-import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import cn.suwako.speedrun.LocalNavController
+import cn.suwako.speedrun.MainActivity
 import cn.suwako.speedrun.R
+import cn.suwako.speedrun.data.local.entities.User
 import cn.suwako.speedrun.ui.theme.SpeedRunTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun AccountOverview() {
     val navController = LocalNavController.current
     val sharedPref = cn.suwako.speedrun.LocalSharedPreferences.current
-    val isLoggedin = remember { sharedPref.getBoolean("isLoggedin", false) }
-    if (isLoggedin) {
+    val isLoggedIn = sharedPref.getBoolean(stringResource(R.string.IsLoggedIn), false)
+    if (isLoggedIn) {
         val navControllerInner = rememberNavController()
-        NavHost(navControllerInner, startDestination = "loggedinAccountOverview") {
-            composable("loggedinAccountOverview") {
-                LoggedinAccountOverview()
+        NavHost(navControllerInner, startDestination = "loggedInAccountOverview") {
+            composable("loggedInAccountOverview") {
+                LoggedinAccountOverview(navControllerInner)
             }
             composable("accountDetail") {
                 AccountDetail(navControllerInner)
@@ -52,9 +56,11 @@ fun AccountOverview() {
 }
 
 @Composable
-fun LoggedinAccountOverview()
+fun LoggedinAccountOverview(navControllerInner : NavController)
 {
     val navController = LocalNavController.current
+    val sharedPref = cn.suwako.speedrun.LocalSharedPreferences.current
+    val userId = sharedPref.getString(stringResource(R.string.LoggedInUserId), "")!!
 
     Scaffold(
         topBar = {
@@ -100,7 +106,7 @@ fun LoggedinAccountOverview()
                             .padding(10.dp)
                             .clip(CircleShape)
                     )
-                    Text(text = "账号：xxxxxxxx")
+                    Text(text = "用户名：${userId}")
                 }
                 val modifierFillW = Modifier
                     .fillMaxWidth(0.8f)
@@ -111,7 +117,7 @@ fun LoggedinAccountOverview()
                     Button(
                         modifier = modifierFillW,
                         onClick = {
-                            navController.navigate("accountDetail")
+                            navControllerInner.navigate("accountDetail")
                         },
                     ) {
                         Text(text = "个人信息")
@@ -119,7 +125,7 @@ fun LoggedinAccountOverview()
                     Button(
                         modifier = modifierFillW,
                         onClick = {
-                            navController.navigate("accountSetting")
+                            navControllerInner.navigate("accountSetting")
                         },
                     ) {
                         Text(text = "设置")
@@ -131,9 +137,18 @@ fun LoggedinAccountOverview()
 //                        Text(text = "修改密码")
 //                    }
                 }
+                val isLoggedInKey = stringResource(R.string.IsLoggedIn)
+                val loggedInUserIdKey = stringResource(R.string.LoggedInUserId)
                 Button(
                     modifier = modifierFillW,
-                    onClick = { /*TODO*/ },
+                    onClick = {
+                        with(sharedPref.edit()) {
+                            putBoolean(isLoggedInKey, false)
+                            putString(loggedInUserIdKey, "")
+                            apply()
+                        }
+                        navController.navigateUp()
+                    },
                 ) {
                     Text(text = "退出登录")
                 }
@@ -146,6 +161,6 @@ fun LoggedinAccountOverview()
 @Composable
 fun AccountOverviewPreview() {
     SpeedRunTheme {
-        LoggedinAccountOverview()
+        LoggedinAccountOverview(navControllerInner = rememberNavController())
     }
 }

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Speed Run</string>
+    <string name="IsLoggedIn">isLoggedIn</string>
+    <string name="LoggedInUserId">loggedInUserId</string>
 </resources>

@@ -4,20 +4,37 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import cn.suwako.speedrun.MainActivity
 import cn.suwako.speedrun.R
+import cn.suwako.speedrun.data.local.entities.User
 import cn.suwako.speedrun.ui.theme.SpeedRunTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun AccountDetail(navController: NavController) {
+
+    val sharedPref = cn.suwako.speedrun.LocalSharedPreferences.current
+    val userId = sharedPref.getString(stringResource(R.string.LoggedInUserId), "")!!
+
+    val user = remember { mutableStateOf(User("5", "satori", "0")) }
+    val coroutineScope = rememberCoroutineScope()
+    LaunchedEffect(userId) {
+        coroutineScope.launch {
+            user.value = MainActivity.database.userDao().getUserById(userId)?:user.value
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -37,7 +54,12 @@ fun AccountDetail(navController: NavController) {
                 },
                 actions = {
                     Button(
-                        onClick = { /*TODO*/ },
+                        onClick = {
+                            coroutineScope.launch {
+                                MainActivity.database.userDao().updateUsers(user.value)
+                            }
+                            navController.navigateUp()
+                        },
                     ) {
                         Text(text = "保存")
                     }
@@ -70,33 +92,47 @@ fun AccountDetail(navController: NavController) {
                     ) {
                         Text(text = "修改头像")
                     }
+                    Text(
+                        text = "用户名: ${user.value.id}",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                    )
                     OutlinedTextField(
-                        value = "昵称",
-                        onValueChange = { /*TODO*/ },
+                        value = user.value.nickname,
+                        onValueChange = { newNickname ->
+                            user.value = user.value.copy(nickname = newNickname)
+                        },
                         label = { Text(text = "昵称") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(10.dp),
                     )
                     OutlinedTextField(
-                        value = "邮箱",
-                        onValueChange = { /*TODO*/ },
+                        value = user.value.email?:"",
+                        onValueChange = { newEmail ->
+                            user.value = user.value.copy(email = newEmail)
+                        },
                         label = { Text(text = "邮箱") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(10.dp),
                     )
                     OutlinedTextField(
-                        value = "手机号",
-                        onValueChange = { /*TODO*/ },
+                        value = user.value.phone?:"",
+                        onValueChange = { newPhone ->
+                            user.value = user.value.copy(phone = newPhone)
+                        },
                         label = { Text(text = "手机号") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(10.dp),
                     )
                     OutlinedTextField(
-                        value = "地址",
-                        onValueChange = { /*TODO*/ },
+                        value = user.value.address?:"",
+                        onValueChange = { newAddress ->
+                            user.value = user.value.copy(address = newAddress)
+                        },
                         label = { Text(text = "地址") },
                         modifier = Modifier
                             .fillMaxWidth()

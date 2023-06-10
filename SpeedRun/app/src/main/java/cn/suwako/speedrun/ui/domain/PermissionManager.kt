@@ -1,41 +1,41 @@
-package cn.suwako.speedrun.ui.utils
+package cn.suwako.speedrun.ui.domain
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 
 class PermissionManager(private val activity: ComponentActivity) {
 
+    private val _getPermissionSuccess: Channel<Boolean> = Channel()
+    val getPermissionSuccess = _getPermissionSuccess.receiveAsFlow()
+
+    // refer to https://developer.android.google.cn/training/basics/intents/result?hl=zh-cn#kotlin
     private val cameraPermissionLauncher = activity.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        // Handle camera permission result
         if (isGranted) {
-            // Permission granted
-            // Perform necessary actions
+            Toast.makeText(activity, "相机权限授权成功", Toast.LENGTH_SHORT).show()
+            _getPermissionSuccess.trySend(true)
         } else {
-            // Permission denied
-            // Handle denied permission case
+            Toast.makeText(activity, "相机权限授权失败", Toast.LENGTH_SHORT).show()
+            _getPermissionSuccess.trySend(false)
         }
     }
 
     private val storagePermissionLauncher = activity.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        // Handle storage permission result
         if (isGranted) {
-            // Permission granted
-            // Perform necessary actions
+            Toast.makeText(activity, "读取权限授权成功", Toast.LENGTH_SHORT).show()
+            _getPermissionSuccess.trySend(true)
         } else {
-            // Permission denied
-            // Handle denied permission case
+            Toast.makeText(activity, "读取权限授权失败", Toast.LENGTH_SHORT).show()
+            _getPermissionSuccess.trySend(false)
         }
     }
 
@@ -61,14 +61,3 @@ class PermissionManager(private val activity: ComponentActivity) {
         storagePermissionLauncher.launch(permission)
     }
 }
-
-@Composable
-fun rememberPermissionManager(
-    activity: ComponentActivity
-): PermissionManager {
-    val lifecycleOwner = remember { activity as LifecycleOwner }
-    return remember(lifecycleOwner) {
-        PermissionManager(activity)
-    }
-}
-

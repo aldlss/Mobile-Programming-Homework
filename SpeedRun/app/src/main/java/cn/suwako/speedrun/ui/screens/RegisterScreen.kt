@@ -1,56 +1,50 @@
 package cn.suwako.speedrun.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.suwako.speedrun.LocalNavController
 import cn.suwako.speedrun.MainActivity
-import cn.suwako.speedrun.R
-import cn.suwako.speedrun.data.local.entities.User
-import kotlinx.coroutines.launch
+import cn.suwako.speedrun.ui.components.BackIconButton
+import cn.suwako.speedrun.ui.viewmodel.RegisterViewModel
 
 @Composable
-fun RegisterScreen() {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+fun RegisterScreen(registerViewModel: RegisterViewModel = viewModel()) {
 
-    var registerSucceed by remember { mutableStateOf(false) }
-    if(registerSucceed) {
-        val navController = LocalNavController.current
-        navController.navigate("login") {
-            popUpTo("register") {
-                inclusive = true
+    val navController = LocalNavController.current
+    val content = LocalContext.current as MainActivity
+
+    LaunchedEffect(key1 = Lifecycle.Event.ON_RESUME) {
+        registerViewModel.registerSuccess.collect {
+            if (it) {
+                Toast.makeText(content, "注册成功", Toast.LENGTH_SHORT).show()
+                navController.navigate("login") {
+                    popUpTo("register") {
+                        inclusive = true
+                    }
+                }
+            } else {
+                Toast.makeText(content, "注册失败", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    val coroutineScope = rememberCoroutineScope()
-
-    val navController = LocalNavController.current
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navController.navigateUp() },
-                        content = {
-                            Icon(
-                                imageVector = ImageVector.vectorResource(id = R.drawable.materialsymbolsarrowbackrounded),
-                                contentDescription = "BackIcon"
-                            )
-                        }
-                    )
-                },
+                navigationIcon = { BackIconButton(navController) },
                 title = { Text(text = "注册") },
                 actions = {
                     Button(
@@ -86,18 +80,18 @@ fun RegisterScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     OutlinedTextField(
-                        value = username,
+                        value = registerViewModel.username,
                         onValueChange = { newUsername ->
-                            username = newUsername
+                            registerViewModel.username = newUsername
                         },
                         label = { Text(text = "用户名") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(0.8f)
                     )
                     OutlinedTextField(
-                        value = password,
+                        value = registerViewModel.password,
                         onValueChange = { newPassword ->
-                            password = newPassword
+                            registerViewModel.password = newPassword
                         },
                         label = { Text(text = "密码") },
                         singleLine = true,
@@ -106,9 +100,9 @@ fun RegisterScreen() {
                         modifier = Modifier.fillMaxWidth(0.8f)
                     )
                     OutlinedTextField(
-                        value = confirmPassword,
+                        value = registerViewModel.confirmPassword,
                         onValueChange = { newConfirmPassword ->
-                            confirmPassword = newConfirmPassword
+                            registerViewModel.confirmPassword = newConfirmPassword
                         },
                         label = { Text(text = "重复密码") },
                         singleLine = true,
@@ -118,15 +112,7 @@ fun RegisterScreen() {
                     )
                     Button(
                         onClick = {
-                            coroutineScope.launch {
-                                val user = MainActivity.database.userDao().getUserById(username)
-                                if (user != null) {
-                                    return@launch
-                                }
-                                val newUser = User(username, username, password)
-                                MainActivity.database.userDao().insertAll(newUser)
-                                registerSucceed = true
-                            }
+                            registerViewModel.register()
                         },
                         modifier = Modifier.fillMaxWidth(0.5f)
                     ) {

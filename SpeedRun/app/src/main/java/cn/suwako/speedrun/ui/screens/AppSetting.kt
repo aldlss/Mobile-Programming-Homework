@@ -1,39 +1,49 @@
 package cn.suwako.speedrun.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.NavController
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
-import cn.suwako.speedrun.R
+import cn.suwako.speedrun.LocalNavController
+import cn.suwako.speedrun.LocalSharePreferences
+import cn.suwako.speedrun.ui.components.BackIconButton
 import cn.suwako.speedrun.ui.theme.SpeedRunTheme
+import cn.suwako.speedrun.ui.theme.Theme
+import cn.suwako.speedrun.ui.theme.ThemeDescription
+import cn.suwako.speedrun.ui.theme.ThemeLiveData
+import kotlinx.coroutines.launch
 
 @Composable
-fun AppSetting(navController: NavController) {
+fun AppSetting() {
+    val navController = LocalNavController.current
+    val sharedPreferences = LocalSharePreferences.current
+    val originTheme = sharedPreferences.getInt("theme", Theme.DEFAULT.ordinal).let { Theme.values()[it] }
+
+    val scope = rememberCoroutineScope()
+
+    var showThemeSetting by rememberSaveable { mutableStateOf(false) }
+    var nowSelectTheme by rememberSaveable { mutableStateOf(originTheme) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(text = "应用设置") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            navController.navigateUp()
-                        },
-                        content = {
-                            Icon(
-                                imageVector = ImageVector.vectorResource(id = R.drawable.materialsymbolsarrowbackrounded),
-                                contentDescription = "BackIcon"
-                            )
-                        }
-                    )
-                },
+                navigationIcon = { BackIconButton(navController)},
                 actions = {
                     Button(
-                        onClick = { /*TODO*/ },
+                        onClick = {
+                            scope.launch {
+                                sharedPreferences.edit()
+                                    .putInt("theme", nowSelectTheme.ordinal)
+                                    .apply()
+                                ThemeLiveData.postValue(nowSelectTheme)
+                            }
+                        },
                     ) {
                         Text(text = "保存")
                     }
@@ -46,7 +56,35 @@ fun AppSetting(navController: NavController) {
                 .fillMaxSize()
                 .padding(it),
         ) {
-
+            Column(
+                Modifier
+                    .padding(10.dp),
+            ) {
+                Text(
+                    text = "设置主题： ${ThemeDescription[nowSelectTheme]}",
+                    modifier = Modifier
+                        .clickable {
+                            showThemeSetting = true
+                        }.fillMaxWidth()
+                        .padding(10.dp),
+                )
+                DropdownMenu(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    expanded = showThemeSetting,
+                    onDismissRequest = { showThemeSetting = false }
+                ) {
+                    ThemeDescription.forEach { (theme, description) ->
+                        DropdownMenuItem(onClick = {
+                            nowSelectTheme = theme
+                            showThemeSetting = false
+                        }) {
+                            Text(text = description)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -55,6 +93,8 @@ fun AppSetting(navController: NavController) {
 @Composable
 fun AppSettingPreview() {
     SpeedRunTheme {
-        AppSetting(navController = rememberNavController())
+        CompositionLocalProvider(LocalNavController provides rememberNavController()) {
+            AppSetting()
+        }
     }
 }

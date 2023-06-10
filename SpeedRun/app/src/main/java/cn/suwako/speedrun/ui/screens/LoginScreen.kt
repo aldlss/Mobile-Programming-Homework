@@ -1,49 +1,49 @@
 package cn.suwako.speedrun.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.suwako.speedrun.LocalNavController
-import cn.suwako.speedrun.LocalSharedPreferences
 import cn.suwako.speedrun.MainActivity
-import cn.suwako.speedrun.R
+import cn.suwako.speedrun.ui.components.BackIconButton
+import cn.suwako.speedrun.ui.viewmodel.LoginViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(loginViewModel: LoginViewModel = viewModel()) {
     val navController = LocalNavController.current
-    RealLoginScreen(navController)
-}
+    val scope = rememberCoroutineScope()
+    val content = LocalContext.current as MainActivity
 
-@Composable
-fun RealLoginScreen(navController: NavController) {
+    LaunchedEffect(key1 = Lifecycle.Event.ON_RESUME) {
+        loginViewModel.loginSuccess.collect {
+            if (it) {
+                Toast.makeText(content, "登录成功", Toast.LENGTH_SHORT).show()
+                navController.navigateUp()
 
-    val coroutineScope = rememberCoroutineScope()
-    val username = remember { mutableStateOf("") }
-    val password = remember { mutableStateOf("") }
-
-    val sharedPref = LocalSharedPreferences.current
+            } else {
+                Toast.makeText(content, "登录失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = { IconButton(
-                    onClick = { navController.navigateUp() },
-                    content = { Icon(
-                        imageVector = ImageVector.vectorResource(id = R.drawable.materialsymbolsarrowbackrounded),
-                        contentDescription = "BackIcon") }
-                ) },
+                navigationIcon = { BackIconButton(navController) },
                 title = { Text(text = "登录") },
                 actions = {
                     Button(
@@ -79,18 +79,18 @@ fun RealLoginScreen(navController: NavController) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     OutlinedTextField(
-                        value = username.value,
-                        onValueChange = { newUsername ->
-                            username.value = newUsername
+                        value = loginViewModel.userId,
+                        onValueChange = { newUserId ->
+                            loginViewModel.userId = newUserId
                         },
                         label = { Text(text = "用户名") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(0.8f)
                     )
                     OutlinedTextField(
-                        value = password.value,
+                        value = loginViewModel.password,
                         onValueChange = { newPassword ->
-                            password.value = newPassword
+                            loginViewModel.password = newPassword
                         },
                         label = { Text(text = "密码") },
                         singleLine = true,
@@ -98,21 +98,10 @@ fun RealLoginScreen(navController: NavController) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth(0.8f)
                     )
-                    val isLoggedInKey = stringResource(R.string.IsLoggedIn)
-                    val loggedInUserIdKey = stringResource(R.string.LoggedInUserId)
                     Button(
                         onClick = {
-                            coroutineScope.launch {
-                                val user = MainActivity.database.userDao().getUserById(username.value)
-                                if (user == null || user.password != password.value) {
-                                    return@launch
-                                }
-                                with(sharedPref.edit()) {
-                                    putBoolean(isLoggedInKey, true)
-                                    putString(loggedInUserIdKey, username.value)
-                                    apply()
-                                }
-                                navController.navigateUp()
+                            scope.launch {
+                                loginViewModel.login()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(0.5f)

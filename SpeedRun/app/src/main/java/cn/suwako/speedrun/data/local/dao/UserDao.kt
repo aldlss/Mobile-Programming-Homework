@@ -2,6 +2,7 @@ package cn.suwako.speedrun.data.local.dao
 
 import androidx.room.*
 import cn.suwako.speedrun.data.local.entities.User
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
@@ -19,4 +20,7 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE id = :userId")
     suspend fun getUserById(userId: String): User?
+
+    @Query("SELECT * FROM users WHERE id = :userId")
+    fun loadUserById(userId: String): Flow<User?>
 }

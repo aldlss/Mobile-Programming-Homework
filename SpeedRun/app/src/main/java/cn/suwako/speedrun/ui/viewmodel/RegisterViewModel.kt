@@ -6,7 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cn.suwako.speedrun.MainActivity
-import cn.suwako.speedrun.data.local.entities.User
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 class RegisterViewModel : ViewModel() {
@@ -14,17 +15,17 @@ class RegisterViewModel : ViewModel() {
     var password by mutableStateOf("")
     var confirmPassword by mutableStateOf("")
 
+    private val _registerSuccess: Channel<Boolean> = Channel()
+    val registerSuccess = _registerSuccess.receiveAsFlow()
+
     fun register() {
         viewModelScope.launch {
-            registerAsync()
-        }
-    }
-
-    private suspend fun registerAsync() {
-        val user = MainActivity.database.userDao().getUserById(username)
-        if(user == null) {
-            val newUser = User(username, username, password)
-            MainActivity.database.userDao().insertAll(newUser)
+            if (password != confirmPassword || username == "" || password == "") {
+                _registerSuccess.send(false)
+                return@launch
+            }
+            val success = MainActivity.authManager.registerByIdPw(username, password)
+            _registerSuccess.send(success)
         }
     }
 }

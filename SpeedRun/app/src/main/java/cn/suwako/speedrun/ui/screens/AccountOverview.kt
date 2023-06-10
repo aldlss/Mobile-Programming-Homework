@@ -1,51 +1,39 @@
 package cn.suwako.speedrun.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.suwako.speedrun.LocalNavController
 import cn.suwako.speedrun.MainActivity
 import cn.suwako.speedrun.R
-import cn.suwako.speedrun.data.local.entities.User
+import cn.suwako.speedrun.ui.components.BackIconButton
 import cn.suwako.speedrun.ui.theme.SpeedRunTheme
-import kotlinx.coroutines.launch
+import cn.suwako.speedrun.ui.viewmodel.AccountOverviewViewModel
 
 @Composable
 fun AccountOverview() {
     val navController = LocalNavController.current
-    val sharedPref = cn.suwako.speedrun.LocalSharedPreferences.current
-    val isLoggedIn = sharedPref.getBoolean(stringResource(R.string.IsLoggedIn), false)
+    val isLoggedIn = MainActivity.authManager.getIsLoggedIn()
+
     if (isLoggedIn) {
-        val navControllerInner = rememberNavController()
-        NavHost(navControllerInner, startDestination = "loggedInAccountOverview") {
-            composable("loggedInAccountOverview") {
-                LoggedinAccountOverview(navControllerInner)
-            }
-            composable("accountDetail") {
-                AccountDetail(navControllerInner)
-            }
-            composable("accountSetting") {
-                AccountSetting(navControllerInner)
-            }
-//            composable("changePassword") {
-//                AccountPassword()
-//            }
-        }
+        LoginAccountOverview()
     } else {
         navController.navigate("login") {
             popUpTo("accountOverview") {
@@ -56,28 +44,19 @@ fun AccountOverview() {
 }
 
 @Composable
-fun LoggedinAccountOverview(navControllerInner : NavController)
+fun LoginAccountOverview(accountOverviewViewModel: AccountOverviewViewModel = viewModel())
 {
     val navController = LocalNavController.current
-    val sharedPref = cn.suwako.speedrun.LocalSharedPreferences.current
-    val userId = sharedPref.getString(stringResource(R.string.LoggedInUserId), "")!!
+    val content = LocalContext.current as MainActivity
+
+    LaunchedEffect(MainActivity.authManager.getUserId()) {
+        accountOverviewViewModel.loadUser(MainActivity.authManager.getUserId())
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            navController.navigateUp()
-                        },
-                        content = {
-                            Icon(
-                                imageVector = ImageVector.vectorResource(id = R.drawable.materialsymbolsarrowbackrounded),
-                                contentDescription = "BackIcon"
-                            )
-                        }
-                    )
-                },
+                navigationIcon = { BackIconButton(navController) },
                 title = { Text(text = "账户") },
             )
         }
@@ -89,7 +68,8 @@ fun LoggedinAccountOverview(navControllerInner : NavController)
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -98,15 +78,28 @@ fun LoggedinAccountOverview(navControllerInner : NavController)
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Image(
+                    val avatarModifier = Modifier
+                        .size(250.dp)
+                        .padding(10.dp)
+                        .clip(CircleShape)
+                    accountOverviewViewModel.avatar?.also { bitmap ->
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Avatar",
+                            modifier = avatarModifier,
+                            contentScale = ContentScale.Crop,
+                        )
+                    } ?: Image(
                         imageVector = ImageVector.vectorResource(id = R.drawable.ic_launcher_background),
-                        contentDescription = "Avatar",
-                        modifier = Modifier
-                            .size(100.dp)
-                            .padding(10.dp)
-                            .clip(CircleShape)
+                        contentDescription = "Default Avatar",
+                        modifier = avatarModifier,
+                        contentScale = ContentScale.Fit,
                     )
-                    Text(text = "用户名：${userId}")
+
+                    Text(
+                        text = accountOverviewViewModel.nickname,
+                        style = MaterialTheme.typography.h3,
+                    )
                 }
                 val modifierFillW = Modifier
                     .fillMaxWidth(0.8f)
@@ -117,7 +110,7 @@ fun LoggedinAccountOverview(navControllerInner : NavController)
                     Button(
                         modifier = modifierFillW,
                         onClick = {
-                            navControllerInner.navigate("accountDetail")
+                            navController.navigate("accountDetail")
                         },
                     ) {
                         Text(text = "个人信息")
@@ -125,7 +118,7 @@ fun LoggedinAccountOverview(navControllerInner : NavController)
                     Button(
                         modifier = modifierFillW,
                         onClick = {
-                            navControllerInner.navigate("accountSetting")
+                            navController.navigate("accountSetting")
                         },
                     ) {
                         Text(text = "设置")
@@ -137,16 +130,11 @@ fun LoggedinAccountOverview(navControllerInner : NavController)
 //                        Text(text = "修改密码")
 //                    }
                 }
-                val isLoggedInKey = stringResource(R.string.IsLoggedIn)
-                val loggedInUserIdKey = stringResource(R.string.LoggedInUserId)
                 Button(
                     modifier = modifierFillW,
                     onClick = {
-                        with(sharedPref.edit()) {
-                            putBoolean(isLoggedInKey, false)
-                            putString(loggedInUserIdKey, "")
-                            apply()
-                        }
+                        MainActivity.authManager.logout()
+                        Toast.makeText(content, "已退出账号", Toast.LENGTH_SHORT).show()
                         navController.navigateUp()
                     },
                 ) {
@@ -161,6 +149,6 @@ fun LoggedinAccountOverview(navControllerInner : NavController)
 @Composable
 fun AccountOverviewPreview() {
     SpeedRunTheme {
-        LoggedinAccountOverview(navControllerInner = rememberNavController())
+        LoginAccountOverview()
     }
 }

@@ -1,64 +1,60 @@
 package cn.suwako.speedrun.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
+import cn.suwako.speedrun.LocalNavController
 import cn.suwako.speedrun.MainActivity
 import cn.suwako.speedrun.R
-import cn.suwako.speedrun.data.local.entities.User
+import cn.suwako.speedrun.ui.components.BackIconButton
+import cn.suwako.speedrun.ui.components.RequestPicture
 import cn.suwako.speedrun.ui.theme.SpeedRunTheme
-import kotlinx.coroutines.launch
+import cn.suwako.speedrun.ui.viewmodel.AccountDetailViewModel
 
 @Composable
-fun AccountDetail(navController: NavController) {
+fun AccountDetail(accountDetailViewModel: AccountDetailViewModel = viewModel()) {
 
-    val sharedPref = cn.suwako.speedrun.LocalSharedPreferences.current
-    val userId = sharedPref.getString(stringResource(R.string.LoggedInUserId), "")!!
+    val navController = LocalNavController.current
+    val content = LocalContext.current as MainActivity
 
-    val user = remember { mutableStateOf(User("5", "satori", "0")) }
-    val coroutineScope = rememberCoroutineScope()
-    LaunchedEffect(userId) {
-        coroutineScope.launch {
-            user.value = MainActivity.database.userDao().getUserById(userId)?:user.value
+    LaunchedEffect(key1 = Lifecycle.Event.ON_RESUME) {
+        accountDetailViewModel.saveSuccess.collect {
+            if (it) {
+                Toast.makeText(content, "保存成功", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
+
+    LaunchedEffect(MainActivity.authManager.getUserId()) {
+        accountDetailViewModel.loadUser(MainActivity.authManager.getUserId())
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(text = "个人信息") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            navController.navigateUp()
-                        },
-                        content = {
-                            Icon(
-                                imageVector = ImageVector.vectorResource(id = R.drawable.materialsymbolsarrowbackrounded),
-                                contentDescription = "BackIcon"
-                            )
-                        }
-                    )
-                },
+                navigationIcon = { BackIconButton(navController) },
                 actions = {
                     Button(
                         onClick = {
-                            coroutineScope.launch {
-                                MainActivity.database.userDao().updateUsers(user.value)
-                            }
-                            navController.navigateUp()
+                            accountDetailViewModel.updateUser(content.filesDir)
                         },
                     ) {
                         Text(text = "保存")
@@ -72,19 +68,52 @@ fun AccountDetail(navController: NavController) {
                 .fillMaxSize()
                 .padding(it),
         ) {
+            var showRequestPicture by remember { mutableStateOf(false) }
+            if (showRequestPicture) {
+                RequestPicture(
+                    onCancel = { showRequestPicture = false },
+                    onImageSelected = { bitmapNullable ->
+                        bitmapNullable?.let { bitmap ->
+                            accountDetailViewModel.avatar = bitmap
+                            Toast.makeText(content, "头像已选择，保存后生效", Toast.LENGTH_SHORT).show()
+                        }
+                        showRequestPicture = false
+                    }
+                )
+            }
+
             Column(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                val avatarModifier = Modifier
+                    .size(200.dp)
+                    .padding(10.dp)
+                    .clip(CircleShape)
+
+                accountDetailViewModel.avatar?.also { bitmap ->
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "avatar",
+                        modifier = avatarModifier,
+                        contentScale = ContentScale.Crop,
+                    )
+                } ?: Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                    contentDescription = "default avatar",
+                    modifier = avatarModifier,
+                    contentScale = ContentScale.Fit,
+                )
                 Column(
                     modifier = Modifier,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Button(
-                        onClick = { /*TODO*/ },
+                        onClick = { showRequestPicture = true },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(10.dp)
@@ -92,51 +121,44 @@ fun AccountDetail(navController: NavController) {
                     ) {
                         Text(text = "修改头像")
                     }
+                    val settingModifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp)
                     Text(
-                        text = "用户名: ${user.value.id}",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
+                        text = "用户名: ${accountDetailViewModel.user.id}",
+                        modifier = settingModifier
                     )
                     OutlinedTextField(
-                        value = user.value.nickname,
+                        value = accountDetailViewModel.user.nickname,
                         onValueChange = { newNickname ->
-                            user.value = user.value.copy(nickname = newNickname)
+                            accountDetailViewModel.user = accountDetailViewModel.user.copy(nickname = newNickname)
                         },
                         label = { Text(text = "昵称") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
+                        modifier = settingModifier
                     )
                     OutlinedTextField(
-                        value = user.value.email?:"",
+                        value = accountDetailViewModel.user.email ?: "",
                         onValueChange = { newEmail ->
-                            user.value = user.value.copy(email = newEmail)
+                            accountDetailViewModel.user = accountDetailViewModel.user.copy(email = newEmail)
                         },
                         label = { Text(text = "邮箱") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
+                        modifier = settingModifier
                     )
                     OutlinedTextField(
-                        value = user.value.phone?:"",
+                        value = accountDetailViewModel.user.phone ?: "",
                         onValueChange = { newPhone ->
-                            user.value = user.value.copy(phone = newPhone)
+                            accountDetailViewModel.user = accountDetailViewModel.user.copy(phone = newPhone)
                         },
                         label = { Text(text = "手机号") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
+                        modifier = settingModifier
                     )
                     OutlinedTextField(
-                        value = user.value.address?:"",
+                        value = accountDetailViewModel.user.address ?: "",
                         onValueChange = { newAddress ->
-                            user.value = user.value.copy(address = newAddress)
+                            accountDetailViewModel.user = accountDetailViewModel.user.copy(address = newAddress)
                         },
                         label = { Text(text = "地址") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
+                        modifier = settingModifier
                     )
                 }
             }
@@ -148,6 +170,10 @@ fun AccountDetail(navController: NavController) {
 @Composable
 fun AccountDetailPreview() {
     SpeedRunTheme {
-        AccountDetail(navController = rememberNavController())
+        CompositionLocalProvider(LocalNavController provides rememberNavController()) {
+            CompositionLocalProvider(LocalContext provides MainActivity()) {
+                AccountDetail()
+            }
+        }
     }
 }

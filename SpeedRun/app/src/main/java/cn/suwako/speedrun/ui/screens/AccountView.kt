@@ -1,7 +1,9 @@
-package cn.suwako.speedrun.ui.components
+package cn.suwako.speedrun.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -17,7 +19,8 @@ fun AccountView() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(10.dp),
+            .padding(10.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -51,9 +54,11 @@ fun AccountView() {
             }
             Button(
                 modifier = modifierFill,
-                onClick = { /*TODO*/ }
+                onClick = {
+                    navController.navigate("about")
+                }
             ) {
-                Text(text = "软件信息")
+                Text(text = "关于")
             }
         }
     }
